@@ -1,0 +1,39 @@
+[workspace]
+members = ["cli"]
+default-members = [".", "cli"]
+resolver = "2"
+
+[package]
+name = "gametorch"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Official async Rust SDK for the GameTorch API: generate game-ready sprites, sound effects and animations."
+license = "MIT"
+repository = "https://github.com/gametorch/gametorch-rs"
+homepage = "https://gametorch.app"
+documentation = "https://gametorch.app/api/docs"
+keywords = ["gametorch", "gamedev", "sprites", "animations", "api"]
+categories = ["api-bindings", "asynchronous", "game-development"]
+readme = "README.md"
+
+[dependencies]
+bytes = "1.12"
+chrono = { version = "0.4", features = ["serde"] }
+futures-util = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+reqwest = { version = "0.13", default-features = true, features = ["json", "query"] }
+rust_decimal = { version = "1.43", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1.53", features = ["sync", "time"] }
+tracing = "0.1"
+url = "2.5"
+uuid = { version = "1.27", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "time"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

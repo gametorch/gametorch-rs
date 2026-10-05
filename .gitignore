@@ -1,0 +1,15 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Environment / secrets
+.env
+.env.*
+.gametorch_v2_api_key_for_testing
+*.pem
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

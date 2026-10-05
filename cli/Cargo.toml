@@ -1,0 +1,27 @@
+[package]
+name = "gametorch-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Command-line interface for GameTorch, wrapping the official Rust SDK."
+license = "MIT"
+repository = "https://github.com/gametorch/gametorch-rs"
+homepage = "https://gametorch.app"
+keywords = ["gametorch", "cli", "gamedev", "sprites", "animations"]
+categories = ["command-line-utilities", "game-development"]
+publish = false
+
+[[bin]]
+name = "gametorch"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.6", features = ["derive", "env", "wrap_help"] }
+gametorch = { path = ".." }
+rust_decimal = "1.43"
+serde = "1"
+serde_json = "1"
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread"] }
+uuid = "1.27"
