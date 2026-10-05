@@ -288,8 +288,13 @@ labels, art styles, usage, API keys, account and health.
 
 ### CLI installation
 
-The CLI lives in the `cli/` workspace member and builds a binary named
-**`gametorch`**. Install it from a clone:
+The CLI builds a binary named **`gametorch`**. Install it from crates.io:
+
+```sh
+cargo install gametorch-cli     # installs the `gametorch` binary
+```
+
+Or from a clone of this repo / the workspace member:
 
 ```sh
 cargo install --path cli        # installs the `gametorch` binary
