@@ -312,7 +312,8 @@ struct GenerateSpriteArgs {
     /// Resolution setting.
     #[arg(long)]
     resolution: Option<String>,
-    /// Edit an existing sprite asset.
+    /// Edit this existing sprite asset (a sprite asset id from `sprite assets`).
+    /// Omit to generate a new sprite from the prompt.
     #[arg(long)]
     base_asset_id: Option<Uuid>,
     /// Override the idempotency key.
@@ -510,7 +511,8 @@ struct EstimateAnimationArgs {
     /// Duration in seconds.
     #[arg(long)]
     duration: Option<i64>,
-    /// Estimate against an existing sprite asset.
+    /// Estimate an animation of this existing sprite asset (a sprite asset id
+    /// from `sprite assets`). Omit to estimate a from-scratch animation.
     #[arg(long)]
     base_asset_id: Option<Uuid>,
 }
@@ -529,7 +531,9 @@ struct GenerateAnimationArgs {
     /// Duration in seconds.
     #[arg(long)]
     duration: Option<i64>,
-    /// Animate an existing sprite asset.
+    /// Animate this existing sprite: pass its sprite asset id from
+    /// `sprite assets`. Omit to generate the animation from scratch, which will
+    /// not resemble any particular sprite.
     #[arg(long)]
     base_asset_id: Option<Uuid>,
     /// Override the idempotency key.
@@ -543,15 +547,23 @@ struct GenerateAnimationArgs {
 #[derive(Subcommand)]
 enum AnimationCmd {
     /// Estimate the cost of an animation run.
+    ///
+    /// Pass --base-asset-id to estimate an animation of an existing sprite; omit
+    /// it to estimate a from-scratch animation.
     Estimate(EstimateAnimationArgs),
     /// Start an animation run.
+    ///
+    /// Pass --base-asset-id (a sprite asset id from `sprite assets`) to animate
+    /// an existing sprite; omit it to generate from scratch, which will not
+    /// resemble any particular sprite.
     Generate(GenerateAnimationArgs),
     /// List a project's animation runs.
     List {
         /// Project id or slug.
         #[arg(long)]
         project: String,
-        /// Only runs whose base image is this sprite asset.
+        /// Only runs generated from this sprite asset (a sprite asset id from
+        /// `sprite assets`).
         #[arg(long)]
         base_asset_id: Option<Uuid>,
         #[command(flatten)]

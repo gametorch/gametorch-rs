@@ -124,7 +124,8 @@ pub struct ListParams {
     pub before: Option<String>,
     /// Include archived items (defaults to `false`).
     pub include_archived: bool,
-    /// Only return animation runs whose base image is this sprite asset.
+    /// Only return animation runs generated from this sprite asset (a sprite
+    /// asset id from [`crate::Client::list_sprite_assets`]).
     ///
     /// Only used by [`crate::Client::list_animation_runs`]; ignored by the
     /// other list endpoints.

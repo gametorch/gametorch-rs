@@ -38,7 +38,9 @@ pub struct AnimationRun {
     /// Number of assets delivered.
     #[serde(default, deserialize_with = "crate::serde_helpers::bool_or_int")]
     pub assets_delivered: i64,
-    /// The base asset the animation was derived from, if any.
+    /// The sprite asset this animation was generated from: the sprite asset id
+    /// passed as `base_asset_id` when the run was created, or `None` when the
+    /// animation was generated from scratch.
     #[serde(default)]
     pub base_asset_id: Option<Uuid>,
     /// Error message if the run failed.

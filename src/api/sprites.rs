@@ -421,7 +421,9 @@ impl<'a> SpriteGenerationBuilder<'a> {
         self
     }
 
-    /// Edits an existing individual image result.
+    /// Edits an existing individual sprite result: pass a sprite asset id from
+    /// [`Client::list_sprite_assets`] (the asset you want to edit). Omit it to
+    /// generate a new sprite from the prompt.
     pub fn base_asset_id(mut self, base_asset_id: impl Into<Uuid>) -> Self {
         self.base_asset_id = Some(base_asset_id.into());
         self

@@ -180,11 +180,52 @@ while let Some(generation) = generations.next_item().await {
 # }
 ```
 
-## Filtering animations by base image
+## Animating an existing sprite (reference image)
 
-Animation runs link back to the sprite asset they were generated from via
-`base_asset_id` (`null` when generated from scratch). You can filter animation
-queries by it:
+To animate an **existing sprite**, pass its sprite asset id as `base_asset_id`.
+Get the id from `GET /projects/{id}/sprite-assets` — `list_sprite_assets` in the
+SDK, or `gametorch sprite assets --project <project>` in the CLI. It is the
+`id` field of an item in that list. **Omit `base_asset_id` to generate the
+animation from scratch** from the prompt alone; an animation created without it
+will not resemble any particular sprite.
+
+```rust,no_run
+# async fn run(client: gametorch::Client, project: uuid::Uuid) -> gametorch::Result<()> {
+// 1. Find (or generate) a sprite and grab its asset id.
+let asset_id = client
+    .list_sprite_assets(project, None)
+    .await?
+    .assets
+    .first()
+    .map(|asset| asset.id)
+    .expect("project has no sprite assets yet");
+
+// 2. Animate that exact sprite by passing its asset id.
+let job = client
+    .generate_animation(project)
+    .prompt("the knight draws her sword and raises it")
+    .animation_model("ash")
+    .duration(4)
+    .base_asset_id(asset_id) // <- reference the sprite; omit to generate from scratch
+    .send()
+    .await?;
+println!("animation {} is {}", job.id, job.status);
+
+// The cost estimate takes the same reference.
+let estimate = client
+    .estimate_animation(project)
+    .animation_model("ash")
+    .duration(4)
+    .base_asset_id(asset_id)
+    .send()
+    .await?;
+println!("{} credits", estimate.credits);
+# Ok(())
+# }
+```
+
+Every run reports the sprite it came from as `base_asset_id` (`null` when
+generated from scratch), so you can link back to it and filter by it:
 
 ```rust,no_run
 # async fn run(client: gametorch::Client, project: uuid::Uuid, sprite: uuid::Uuid) -> gametorch::Result<()> {
@@ -406,12 +447,16 @@ gametorch sound generation unarchive <sound-generation-id>
 **Animations, frames and exports**
 
 ```sh
-gametorch animation estimate --project my-game --animation-model ash --duration 4
+# Find the sprite asset id to animate (from `sprite assets`), then pass it as
+# --base-asset-id. Omit it to generate the animation from scratch.
+gametorch sprite assets --project my-game
+gametorch animation estimate --project my-game --animation-model ash --duration 4 \
+  --base-asset-id <sprite-asset-id>
 gametorch animation generate --project my-game --prompt "draw the sword" \
-  --animation-model ash --duration 4 --base-asset-id <asset-id> --wait
+  --animation-model ash --duration 4 --base-asset-id <sprite-asset-id> --wait
 
 gametorch animation list --project my-game --include-archived
-gametorch animation list --project my-game --base-asset-id <asset-id>   # filter by base image
+gametorch animation list --project my-game --base-asset-id <sprite-asset-id>  # filter by base image
 gametorch animation get <run-id>
 gametorch animation content <run-id> --output clip.bin
 gametorch animation archive <run-id>

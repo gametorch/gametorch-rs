@@ -1,4 +1,15 @@
 //! Animation run, frame generation and content endpoints.
+//!
+//! # Referencing a sprite
+//!
+//! To animate an **existing sprite**, pass its sprite asset id as
+//! [`AnimationRunBuilder::base_asset_id`] (or
+//! [`AnimationEstimateBuilder::base_asset_id`] on the estimate). Get the id
+//! from [`Client::list_sprite_assets`] — it is the `id` field of an item in
+//! `GET /projects/{project_id}/sprite-assets`. **Omit `base_asset_id` to
+//! generate the animation from scratch** (prompt only), which is why it is
+//! optional. An animation created without it will not resemble any particular
+//! sprite.
 
 use reqwest::Method;
 use serde::Serialize;
@@ -40,6 +51,10 @@ struct GenerateFramesBody {
 impl Client {
     /// Estimates the credit cost of an animation run without starting one.
     ///
+    /// Chain [`AnimationEstimateBuilder::base_asset_id`] with a sprite asset id
+    /// (from [`Client::list_sprite_assets`]) to estimate an animation of that
+    /// sprite; omit it to estimate a from-scratch animation.
+    ///
     /// `POST /projects/{project_id}/animation-runs/estimate`
     pub fn estimate_animation(&self, project_id: impl Into<Uuid>) -> AnimationEstimateBuilder<'_> {
         AnimationEstimateBuilder {
@@ -52,6 +67,11 @@ impl Client {
     }
 
     /// Starts building an animation run.
+    ///
+    /// To animate an existing sprite, pass its id from
+    /// [`Client::list_sprite_assets`] as
+    /// [`AnimationRunBuilder::base_asset_id`]; **omit it to generate from
+    /// scratch** (prompt only), which will not resemble any particular sprite.
     ///
     /// # Examples
     ///
@@ -287,7 +307,10 @@ impl<'a> AnimationEstimateBuilder<'a> {
         self
     }
 
-    /// Bases the estimate on an existing asset.
+    /// Animates an existing sprite: pass a sprite asset id from
+    /// [`Client::list_sprite_assets`] (the `id` field of an item in
+    /// `GET /projects/{project_id}/sprite-assets`). Omit it to estimate a
+    /// from-scratch animation.
     pub fn base_asset_id(mut self, base_asset_id: impl Into<Uuid>) -> Self {
         self.base_asset_id = Some(base_asset_id.into());
         self
@@ -352,7 +375,10 @@ impl<'a> AnimationRunBuilder<'a> {
         self
     }
 
-    /// Animates an existing asset.
+    /// Animates an existing sprite: pass a sprite asset id from
+    /// [`Client::list_sprite_assets`] (the `id` field of an item in
+    /// `GET /projects/{project_id}/sprite-assets`). Omit it to generate the
+    /// animation from scratch.
     pub fn base_asset_id(mut self, base_asset_id: impl Into<Uuid>) -> Self {
         self.base_asset_id = Some(base_asset_id.into());
         self

@@ -1,11 +1,17 @@
-//! Creates a new project, generates an animation in it, generates its frames,
-//! saves a sub-range as a named preset with metadata and a label, then exports
-//! it in every supported format.
+//! Creates a new project, generates a sprite, animates **that exact sprite**
+//! by passing its asset id as `base_asset_id`, generates the animation's
+//! frames, saves a sub-range as a named preset with metadata and a label, then
+//! exports it in every supported format.
 //!
-//! **This example spends credits** (animation generation and, if needed, frame
-//! generation). It creates a fresh project and deletes it again at the end. Set
-//! `GAMETORCH_KEEP_PROJECT=1` to keep the project so you can inspect it in the
-//! GameTorch UI.
+//! Animating an existing sprite is done by referencing it: pass the sprite
+//! asset id (from `Client::list_sprite_assets`, or `GET
+//! /projects/{id}/sprite-assets`) as `base_asset_id`. Omit it to generate an
+//! animation from scratch, which will not resemble any particular sprite.
+//!
+//! **This example spends credits** (one sprite, animation generation and, if
+//! needed, frame generation). It creates a fresh project and deletes it again
+//! at the end. Set `GAMETORCH_KEEP_PROJECT=1` to keep the project so you can
+//! inspect it in the GameTorch UI.
 //!
 //! ```sh
 //! GAMETORCH_API_KEY=gt2_... cargo run --example generate_animation
@@ -15,7 +21,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use gametorch::{Client, Export, ExportFormat, Project};
+use gametorch::{Client, Export, ExportFormat, Project, SpriteMode};
 use uuid::Uuid;
 
 /// A unix-style file path used for the metadata round-trip.
@@ -48,20 +54,68 @@ async fn main() -> gametorch::Result<()> {
 }
 
 async fn run(client: &Client, project: &Project) -> gametorch::Result<()> {
+    // 1. Generate a sprite and grab its asset id — this is the reference image
+    //    the animation will be built from.
+    let models = client.sprite_models().await?;
+    let image_model = models
+        .image_models
+        .iter()
+        .find(|model| model.available)
+        .expect("no available image models")
+        .id
+        .clone();
+
+    let sprite_job = client
+        .generate_sprite(project.id)
+        .prompt("a knight in armor, side view, game sprite")
+        .mode(SpriteMode::Single)
+        .image_model(image_model)
+        .send()
+        .await?;
+    println!(
+        "sprite generation {} is {}",
+        sprite_job.id, sprite_job.status
+    );
+
+    let generation = wait_for_generation(client, sprite_job.id).await?;
+    let base_asset_id = generation
+        .assets
+        .first()
+        .expect("sprite generation produced no assets")
+        .id;
+    println!("using sprite asset {base_asset_id} as the animation reference");
+
+    // Optional: check the cost first. The estimate takes the same reference.
+    let estimate = client
+        .estimate_animation(project.id)
+        .animation_model("ash")
+        .duration(4)
+        .base_asset_id(base_asset_id)
+        .send()
+        .await?;
+    println!(
+        "estimated {} credits (~${}) for a 4s ash animation",
+        estimate.credits, estimate.usd
+    );
+
+    // 2. Animate that exact sprite by passing its asset id as `base_asset_id`.
+    //    Omitting this call would generate an unrelated from-scratch animation.
     let job = client
         .generate_animation(project.id)
         .prompt("the hero draws her sword and raises it overhead")
         .animation_model("ash")
         .duration(4)
+        .base_asset_id(base_asset_id)
         .send()
         .await?;
     println!("animation {} is {}", job.id, job.status);
 
     let mut run = wait_for_animation(client, job.id).await?;
     println!(
-        "animation {} finished with {} frame(s)",
+        "animation {} finished with {} frame(s) (base_asset_id={:?})",
         run.id,
-        run.frames.len()
+        run.frames.len(),
+        run.base_asset_id
     );
 
     // Frames usually generate automatically on success; wait for that to
@@ -178,6 +232,20 @@ async fn run(client: &Client, project: &Project) -> gametorch::Result<()> {
     }
 
     Ok(())
+}
+
+async fn wait_for_generation(
+    client: &Client,
+    generation_id: Uuid,
+) -> gametorch::Result<gametorch::Generation> {
+    loop {
+        let generation = client.get_generation(generation_id, true).await?;
+        println!("sprite status: {}", generation.status);
+        if generation.status != "queued" && generation.status != "running" {
+            return Ok(generation);
+        }
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
 }
 
 async fn wait_for_animation(

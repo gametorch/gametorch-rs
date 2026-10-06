@@ -5,7 +5,7 @@ resolver = "2"
 
 [package]
 name = "gametorch"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.85"
 description = "Official async Rust SDK for the GameTorch API: generate game-ready sprites, sound effects and animations."
