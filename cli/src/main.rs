@@ -391,7 +391,7 @@ enum SpriteAssetCmd {
     },
     /// Rename a sprite asset. Pass an empty string to clear the name.
     Rename { id: Uuid, name: String },
-    /// Replace a sprite asset's metadata.
+    /// Merge (upsert) a sprite asset's metadata, and/or remove keys.
     Metadata {
         id: Uuid,
         #[command(flatten)]
@@ -482,7 +482,7 @@ enum SoundAssetCmd {
     },
     /// Rename a sound asset. Pass an empty string to clear the name.
     Rename { id: Uuid, name: String },
-    /// Replace a sound asset's metadata.
+    /// Merge (upsert) a sound asset's metadata, and/or remove keys.
     Metadata {
         id: Uuid,
         #[command(flatten)]
@@ -690,7 +690,7 @@ enum SavedCmd {
     Get { id: Uuid },
     /// Rename a saved animation. Pass an empty string to clear the name.
     Rename { id: Uuid, name: String },
-    /// Replace a saved animation's metadata.
+    /// Merge (upsert) a saved animation's metadata, and/or remove keys.
     Metadata {
         id: Uuid,
         #[command(flatten)]
