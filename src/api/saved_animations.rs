@@ -1,7 +1,5 @@
 //! Saved animation endpoints.
 
-use std::collections::HashMap;
-
 use reqwest::Method;
 use serde::Serialize;
 use uuid::Uuid;
@@ -9,7 +7,7 @@ use uuid::Uuid;
 use crate::api::list_query;
 use crate::client::Client;
 use crate::error::{Error, Result};
-use crate::models::{SavedAnimation, SavedAnimationsResponse};
+use crate::models::{PutMetadataRequest, SavedAnimation, SavedAnimationsResponse};
 use crate::rate_limit::{Concurrency, RateClass};
 use crate::types::{
     ArchiveResponse, AssetMetadataResponse, AssetNameResponse, ListParams, Page, Paginator,
@@ -27,11 +25,6 @@ struct CreateSavedAnimationBody<'a> {
 #[derive(Serialize)]
 struct UpdateSavedAnimationBody<'a> {
     name: Option<&'a str>,
-}
-
-#[derive(Serialize)]
-struct MetadataBody<'a> {
-    metadata: &'a HashMap<String, String>,
 }
 
 impl Client {
@@ -112,13 +105,18 @@ impl Client {
         .await
     }
 
-    /// Replaces a saved animation's metadata.
+    /// Merges (upserts) metadata on a saved animation, and/or removes keys.
+    ///
+    /// This is additive: keys in [`PutMetadataRequest::metadata`] are added or
+    /// overwritten and every other key is kept. It never clears metadata; to
+    /// delete keys, list them in [`PutMetadataRequest::remove`]. The response
+    /// contains the full merged metadata map.
     ///
     /// `PUT /saved-animations/{id}/metadata`
     pub async fn put_saved_animation_metadata(
         &self,
         id: impl Into<Uuid>,
-        metadata: &HashMap<String, String>,
+        request: &PutMetadataRequest,
     ) -> Result<AssetMetadataResponse> {
         let id = id.into();
         self.send_json(
@@ -127,7 +125,7 @@ impl Client {
             Concurrency::NONE,
             || {
                 self.request(Method::PUT, &format!("saved-animations/{id}/metadata"))
-                    .json(&MetadataBody { metadata })
+                    .json(request)
             },
         )
         .await

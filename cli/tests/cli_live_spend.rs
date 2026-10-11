@@ -81,7 +81,7 @@ fn sprite_generation_full_flow() {
     let named = run_json(&["sprite", "asset", "rename", &asset, "Hero Fox"]);
     assert_eq!(named["name"], "Hero Fox");
 
-    // Metadata add, remove, then re-apply for browsing.
+    // Metadata is additive (merge); --remove deletes keys, then re-apply.
     let tagged = run_json(&[
         "sprite",
         "asset",
@@ -91,7 +91,19 @@ fn sprite_generation_full_flow() {
         "filepath=/foo/bar/sprites/hero.png",
     ]);
     assert_eq!(tagged["metadata"]["filepath"], "/foo/bar/sprites/hero.png");
-    let cleared = run_json(&["sprite", "asset", "metadata-clear", &asset]);
+    let merged = run_json(&[
+        "sprite",
+        "asset",
+        "metadata",
+        &asset,
+        "--metadata",
+        "variant=background",
+    ]);
+    assert_eq!(merged["metadata"]["filepath"], "/foo/bar/sprites/hero.png");
+    assert_eq!(merged["metadata"]["variant"], "background");
+    let cleared = run_json(&[
+        "sprite", "asset", "metadata", &asset, "--remove", "filepath", "--remove", "variant",
+    ]);
     assert!(cleared["metadata"].as_object().unwrap().is_empty());
     run_json(&[
         "sprite",
@@ -190,6 +202,7 @@ fn sound_generation_full_flow() {
     let named = run_json(&["sound", "asset", "rename", &asset, "Sword Unsheath"]);
     assert_eq!(named["name"], "Sword Unsheath");
 
+    // Metadata is additive (merge); --remove deletes keys, then re-apply.
     let tagged = run_json(&[
         "sound",
         "asset",
@@ -202,7 +215,22 @@ fn sound_generation_full_flow() {
         tagged["metadata"]["filepath"],
         "/foo/bar/audio/sword-unsheath.mp3"
     );
-    run_json(&["sound", "asset", "metadata-clear", &asset]);
+    let merged = run_json(&[
+        "sound",
+        "asset",
+        "metadata",
+        &asset,
+        "--metadata",
+        "variant=background",
+    ]);
+    assert_eq!(
+        merged["metadata"]["filepath"],
+        "/foo/bar/audio/sword-unsheath.mp3"
+    );
+    let cleared = run_json(&[
+        "sound", "asset", "metadata", &asset, "--remove", "filepath", "--remove", "variant",
+    ]);
+    assert!(cleared["metadata"].as_object().unwrap().is_empty());
     run_json(&[
         "sound",
         "asset",
@@ -327,6 +355,29 @@ fn animation_generation_exports_and_saved_animation() {
         tagged["metadata"]["filepath"],
         "/foo/bar/animations/sword-raise.aseprite"
     );
+    let merged = run_json(&[
+        "saved",
+        "metadata",
+        &saved_id,
+        "--metadata",
+        "variant=background",
+    ]);
+    assert_eq!(
+        merged["metadata"]["filepath"],
+        "/foo/bar/animations/sword-raise.aseprite"
+    );
+    let cleared = run_json(&[
+        "saved", "metadata", &saved_id, "--remove", "variant", "--remove", "filepath",
+    ]);
+    assert!(cleared["metadata"].as_object().unwrap().is_empty());
+    // Re-apply the filepath for browsing.
+    run_json(&[
+        "saved",
+        "metadata",
+        &saved_id,
+        "--metadata",
+        "filepath=/foo/bar/animations/sword-raise.aseprite",
+    ]);
     let label = label_id(&project, "anim");
     let labels = run_json(&["label", "list", "--project", &project]);
     let label_name = labels["labels"]

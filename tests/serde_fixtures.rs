@@ -335,3 +335,37 @@ fn api_key_scopes_decode() {
     assert_eq!(key.key_scope, gametorch::ApiKeyScope::Admin);
     assert_eq!(key.project_id, None);
 }
+
+#[test]
+fn put_metadata_request_merges_and_removes() {
+    let request = gametorch::PutMetadataRequest::new()
+        .set("variant", "background")
+        .set("facing", "left")
+        .remove("old_key");
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(value["metadata"]["variant"], "background");
+    assert_eq!(value["metadata"]["facing"], "left");
+    assert_eq!(value["remove"], serde_json::json!(["old_key"]));
+
+    // A remove-only request omits `metadata` entirely.
+    let value =
+        serde_json::to_value(gametorch::PutMetadataRequest::new().remove_keys(["a", "b"])).unwrap();
+    assert!(value.get("metadata").is_none());
+    assert_eq!(value["remove"], serde_json::json!(["a", "b"]));
+
+    // An empty request serializes to `{}` (a no-op merge).
+    let value = serde_json::to_value(gametorch::PutMetadataRequest::new()).unwrap();
+    assert_eq!(value, serde_json::json!({}));
+}
+
+#[test]
+fn asset_metadata_response_returns_full_map() {
+    let json = r##"{"ok":true,"metadata":{"filepath":"/foo/bar/x.png","variant":"background"}}"##;
+    let response: gametorch::AssetMetadataResponse = serde_json::from_str(json).unwrap();
+    assert!(response.ok);
+    assert_eq!(
+        response.metadata.get("filepath").map(String::as_str),
+        Some("/foo/bar/x.png")
+    );
+    assert_eq!(response.metadata.len(), 2);
+}

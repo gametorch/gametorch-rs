@@ -22,11 +22,10 @@
 //!   cargo test --test live_spend -- --test-threads=1 --nocapture
 //! ```
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use gametorch::models::{AnimationRun, Generation, SoundGeneration};
-use gametorch::{Client, Export, ExportFormat, Project, SpriteMode};
+use gametorch::{Client, Export, ExportFormat, Project, PutMetadataRequest, SpriteMode};
 use uuid::Uuid;
 
 /// Unix-style file paths used for the metadata round-trips.
@@ -219,25 +218,47 @@ async fn sprite_generation_full_flow() {
         .expect("rename asset");
     assert_eq!(named.name.as_deref(), Some("Hero Fox"));
 
-    // Metadata add then remove.
-    let mut metadata = HashMap::new();
-    metadata.insert("filepath".to_string(), SPRITE_FILEPATH.to_string());
+    // Metadata is additive (merge/upsert); remove deletes keys explicitly.
     let updated = client
-        .put_asset_metadata(asset.id, &metadata)
+        .put_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("filepath", SPRITE_FILEPATH),
+        )
         .await
         .expect("add metadata");
     assert_eq!(
         updated.metadata.get("filepath").map(String::as_str),
         Some(SPRITE_FILEPATH)
     );
-    let cleared = client
-        .put_asset_metadata(asset.id, &HashMap::new())
+    let merged = client
+        .put_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("variant", "background"),
+        )
+        .await
+        .expect("merge metadata");
+    assert_eq!(
+        merged.metadata.get("filepath").map(String::as_str),
+        Some(SPRITE_FILEPATH)
+    );
+    assert_eq!(
+        merged.metadata.get("variant").map(String::as_str),
+        Some("background")
+    );
+    let removed = client
+        .put_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().remove_keys(["filepath", "variant"]),
+        )
         .await
         .expect("remove metadata");
-    assert!(cleared.metadata.is_empty());
+    assert!(removed.metadata.is_empty());
     // Re-apply so the kept project shows the metadata in the UI.
     client
-        .put_asset_metadata(asset.id, &metadata)
+        .put_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("filepath", SPRITE_FILEPATH),
+        )
         .await
         .expect("re-add metadata");
 
@@ -314,24 +335,43 @@ async fn sound_generation_full_flow() {
         .expect("rename sound");
     assert_eq!(named.name.as_deref(), Some("Sword Unsheath"));
 
-    let mut metadata = HashMap::new();
-    metadata.insert("filepath".to_string(), SOUND_FILEPATH.to_string());
+    // Metadata is additive (merge/upsert); remove deletes keys explicitly.
     let updated = client
-        .put_sound_asset_metadata(asset.id, &metadata)
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("filepath", SOUND_FILEPATH),
+        )
         .await
         .expect("add metadata");
     assert_eq!(
         updated.metadata.get("filepath").map(String::as_str),
         Some(SOUND_FILEPATH)
     );
-    let cleared = client
-        .put_sound_asset_metadata(asset.id, &HashMap::new())
+    let merged = client
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("variant", "background"),
+        )
+        .await
+        .expect("merge metadata");
+    assert_eq!(
+        merged.metadata.get("filepath").map(String::as_str),
+        Some(SOUND_FILEPATH)
+    );
+    let removed = client
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().remove_keys(["filepath", "variant"]),
+        )
         .await
         .expect("remove metadata");
-    assert!(cleared.metadata.is_empty());
+    assert!(removed.metadata.is_empty());
     // Re-apply so the kept project shows the metadata in the UI.
     client
-        .put_sound_asset_metadata(asset.id, &metadata)
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("filepath", SOUND_FILEPATH),
+        )
         .await
         .expect("re-add metadata");
 
@@ -440,25 +480,43 @@ async fn animation_generation_exports_and_saved_animation() {
         .expect("rename saved animation");
     assert_eq!(renamed.name.as_deref(), Some("Sword Raise (named)"));
 
-    // Metadata add then remove.
-    let mut metadata = HashMap::new();
-    metadata.insert("filepath".to_string(), ANIMATION_FILEPATH.to_string());
+    // Metadata is additive (merge/upsert); remove deletes keys explicitly.
     let tagged = client
-        .put_saved_animation_metadata(saved.id, &metadata)
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().set("filepath", ANIMATION_FILEPATH),
+        )
         .await
         .expect("add metadata");
     assert_eq!(
         tagged.metadata.get("filepath").map(String::as_str),
         Some(ANIMATION_FILEPATH)
     );
-    let cleared = client
-        .put_saved_animation_metadata(saved.id, &HashMap::new())
+    let merged = client
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().set("variant", "background"),
+        )
+        .await
+        .expect("merge metadata");
+    assert_eq!(
+        merged.metadata.get("filepath").map(String::as_str),
+        Some(ANIMATION_FILEPATH)
+    );
+    let removed = client
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().remove_keys(["filepath", "variant"]),
+        )
         .await
         .expect("remove metadata");
-    assert!(cleared.metadata.is_empty());
+    assert!(removed.metadata.is_empty());
     // Re-apply so the kept project shows the metadata in the UI.
     client
-        .put_saved_animation_metadata(saved.id, &metadata)
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().set("filepath", ANIMATION_FILEPATH),
+        )
         .await
         .expect("re-add metadata");
 

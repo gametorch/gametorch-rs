@@ -18,10 +18,9 @@
 //! GAMETORCH_API_KEY=gt2_... GAMETORCH_KEEP_PROJECT=1 cargo run --example generate_animation
 //! ```
 
-use std::collections::HashMap;
 use std::time::Duration;
 
-use gametorch::{Client, Export, ExportFormat, Project, SpriteMode};
+use gametorch::{Client, Export, ExportFormat, Project, PutMetadataRequest, SpriteMode};
 use uuid::Uuid;
 
 /// A unix-style file path used for the metadata round-trip.
@@ -164,19 +163,38 @@ async fn run(client: &Client, project: &Project) -> gametorch::Result<()> {
         .await?;
     println!("renamed saved animation: {:?}", renamed.name);
 
-    let mut metadata = HashMap::new();
-    metadata.insert("filepath".to_string(), FILEPATH.to_string());
+    // Metadata is additive (merge/upsert): keys are added or overwritten and
+    // every other key is kept. Deleting keys requires the explicit `remove`.
     let tagged = client
-        .put_saved_animation_metadata(saved.id, &metadata)
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().set("filepath", FILEPATH),
+        )
         .await?;
     println!("metadata after add: {:?}", tagged.metadata);
+    let merged = client
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().set("variant", "background"),
+        )
+        .await?;
+    println!(
+        "metadata after merge (filepath kept): {:?}",
+        merged.metadata
+    );
     let cleared = client
-        .put_saved_animation_metadata(saved.id, &HashMap::new())
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().remove_keys(["filepath", "variant"]),
+        )
         .await?;
     println!("metadata after remove: {:?}", cleared.metadata);
     // Re-apply so the project shows the metadata when kept.
     client
-        .put_saved_animation_metadata(saved.id, &metadata)
+        .put_saved_animation_metadata(
+            saved.id,
+            &PutMetadataRequest::new().set("filepath", FILEPATH),
+        )
         .await?;
 
     let label_name = format!("anim-{}", &Uuid::new_v4().simple().to_string()[..8]);

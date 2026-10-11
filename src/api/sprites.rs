@@ -1,7 +1,5 @@
 //! Sprite generation and sprite asset endpoints.
 
-use std::collections::HashMap;
-
 use reqwest::Method;
 use serde::Serialize;
 use uuid::Uuid;
@@ -9,7 +7,9 @@ use uuid::Uuid;
 use crate::api::list_query;
 use crate::client::Client;
 use crate::error::{Error, Result};
-use crate::models::{Asset, Generation, GenerationsResponse, SpriteAssetsResponse};
+use crate::models::{
+    Asset, Generation, GenerationsResponse, PutMetadataRequest, SpriteAssetsResponse,
+};
 use crate::rate_limit::{Concurrency, RateClass};
 use crate::types::{
     ArchiveResponse, AssetMetadataResponse, AssetNameResponse, Download, JobCreated, ListParams,
@@ -35,11 +35,6 @@ struct CreateGenerationBody<'a> {
 #[derive(Serialize)]
 struct UpdateAssetBody<'a> {
     name: Option<&'a str>,
-}
-
-#[derive(Serialize)]
-struct MetadataBody<'a> {
-    metadata: &'a HashMap<String, String>,
 }
 
 impl Client {
@@ -214,13 +209,18 @@ impl Client {
         .await
     }
 
-    /// Replaces a sprite asset's metadata.
+    /// Merges (upserts) metadata on a sprite asset, and/or removes keys.
+    ///
+    /// This is additive: keys in [`PutMetadataRequest::metadata`] are added or
+    /// overwritten and every other key is kept. It never clears metadata; to
+    /// delete keys, list them in [`PutMetadataRequest::remove`]. The response
+    /// contains the asset's full merged metadata map.
     ///
     /// `PUT /assets/{id}/metadata`
     pub async fn put_asset_metadata(
         &self,
         asset_id: impl Into<Uuid>,
-        metadata: &HashMap<String, String>,
+        request: &PutMetadataRequest,
     ) -> Result<AssetMetadataResponse> {
         let asset_id = asset_id.into();
         self.send_json(
@@ -229,7 +229,7 @@ impl Client {
             Concurrency::NONE,
             || {
                 self.request(Method::PUT, &format!("assets/{asset_id}/metadata"))
-                    .json(&MetadataBody { metadata })
+                    .json(request)
             },
         )
         .await

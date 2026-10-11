@@ -10,10 +10,9 @@
 //! GAMETORCH_API_KEY=gt2_... GAMETORCH_KEEP_PROJECT=1 cargo run --example generate_sound
 //! ```
 
-use std::collections::HashMap;
 use std::time::Duration;
 
-use gametorch::{Client, Project};
+use gametorch::{Client, Project, PutMetadataRequest};
 use uuid::Uuid;
 
 /// A unix-style file path used for the metadata round-trip.
@@ -69,17 +68,39 @@ async fn run(client: &Client, project: &Project) -> gametorch::Result<()> {
         .await?;
     println!("named sound: {:?}", named.name);
 
-    // Add metadata, then remove it again.
-    let mut metadata = HashMap::new();
-    metadata.insert("filepath".to_string(), FILEPATH.to_string());
-    let updated = client.put_sound_asset_metadata(asset.id, &metadata).await?;
+    // Metadata is additive (merge/upsert): keys are added or overwritten and
+    // every other key is kept. Deleting keys requires the explicit `remove`.
+    let updated = client
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("filepath", FILEPATH),
+        )
+        .await?;
     println!("metadata after add: {:?}", updated.metadata);
+    let merged = client
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("variant", "background"),
+        )
+        .await?;
+    println!(
+        "metadata after merge (filepath kept): {:?}",
+        merged.metadata
+    );
     let cleared = client
-        .put_sound_asset_metadata(asset.id, &HashMap::new())
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().remove_keys(["filepath", "variant"]),
+        )
         .await?;
     println!("metadata after remove: {:?}", cleared.metadata);
     // Re-apply so the project shows the metadata when kept.
-    client.put_sound_asset_metadata(asset.id, &metadata).await?;
+    client
+        .put_sound_asset_metadata(
+            asset.id,
+            &PutMetadataRequest::new().set("filepath", FILEPATH),
+        )
+        .await?;
 
     // Add a label, remove it (to prove the round-trip), then re-apply it.
     let label_name = format!("sound-{}", &Uuid::new_v4().simple().to_string()[..8]);

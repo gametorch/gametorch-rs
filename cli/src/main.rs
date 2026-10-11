@@ -14,7 +14,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use gametorch::{
     ApiKeyScope, ArchiveResponse, Client, CreateApiKeyRequest, ExportFormat, ListParams,
-    SpendResetCadence, SpriteMode, UpdateApiKeyRequest,
+    PutMetadataRequest, SpendResetCadence, SpriteMode, UpdateApiKeyRequest,
 };
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -182,13 +182,17 @@ struct ListArgs {
 
 #[derive(Args, Clone)]
 struct MetadataArgs {
-    /// Metadata entry as KEY=VALUE (repeatable).
+    /// Metadata entry as KEY=VALUE (repeatable). Additive: adds or overwrites
+    /// keys and keeps the rest.
     #[arg(long = "metadata", value_name = "KEY=VALUE")]
     metadata: Vec<String>,
+    /// Remove a metadata key (repeatable). The only way to delete keys.
+    #[arg(long = "remove", value_name = "KEY")]
+    remove: Vec<String>,
 }
 
 impl MetadataArgs {
-    fn parse(&self) -> Result<HashMap<String, String>> {
+    fn to_request(&self) -> Result<PutMetadataRequest> {
         let mut map = HashMap::new();
         for item in &self.metadata {
             let (key, value) = item
@@ -196,7 +200,9 @@ impl MetadataArgs {
                 .with_context(|| format!("metadata must be KEY=VALUE, got {item:?}"))?;
             map.insert(key.to_string(), value.to_string());
         }
-        Ok(map)
+        Ok(PutMetadataRequest::new()
+            .metadata(map)
+            .remove_keys(self.remove.clone()))
     }
 }
 
@@ -971,6 +977,29 @@ async fn resolve_project(client: &Client, project: &str) -> Result<Uuid> {
         .with_context(|| format!("no project matches {project:?}"))
 }
 
+/// Looks up a sound asset's current metadata keys by scanning the caller's
+/// projects and their sound generations (there is no single-asset GET).
+async fn sound_asset_metadata_keys(client: &Client, asset_id: Uuid) -> Result<Vec<String>> {
+    let params = ListParams {
+        include_archived: true,
+        ..Default::default()
+    };
+    for project in client.list_projects().await?.projects {
+        for generation in client
+            .list_sound_generations(project.id, &params)
+            .await?
+            .sound_generations
+        {
+            for asset in generation.assets {
+                if asset.id == asset_id {
+                    return Ok(asset.metadata.keys().cloned().collect());
+                }
+            }
+        }
+    }
+    bail!("sound asset {asset_id} not found in the caller's scope")
+}
+
 fn list_params(list: &ListArgs) -> ListParams {
     ListParams {
         before: list.before.clone(),
@@ -1232,14 +1261,23 @@ async fn run_sprite_asset(client: &Client, json: bool, command: SpriteAssetCmd) 
             })?;
         }
         SpriteAssetCmd::Metadata { id, metadata } => {
-            let map = metadata.parse()?;
-            let response = client.put_asset_metadata(id, &map).await?;
+            let request = metadata.to_request()?;
+            let response = client.put_asset_metadata(id, &request).await?;
             emit(json, &response, |r| {
                 println!("ok={} metadata={:?}", r.ok, r.metadata)
             })?;
         }
         SpriteAssetCmd::MetadataClear { id } => {
-            let response = client.put_asset_metadata(id, &HashMap::new()).await?;
+            let keys: Vec<String> = client
+                .get_asset(id)
+                .await?
+                .metadata
+                .keys()
+                .cloned()
+                .collect();
+            let response = client
+                .put_asset_metadata(id, &PutMetadataRequest::new().remove_keys(keys))
+                .await?;
             emit(json, &response, |r| {
                 println!("ok={} metadata={:?}", r.ok, r.metadata)
             })?;
@@ -1344,14 +1382,17 @@ async fn run_sound_asset(client: &Client, json: bool, command: SoundAssetCmd) ->
             })?;
         }
         SoundAssetCmd::Metadata { id, metadata } => {
-            let map = metadata.parse()?;
-            let response = client.put_sound_asset_metadata(id, &map).await?;
+            let request = metadata.to_request()?;
+            let response = client.put_sound_asset_metadata(id, &request).await?;
             emit(json, &response, |r| {
                 println!("ok={} metadata={:?}", r.ok, r.metadata)
             })?;
         }
         SoundAssetCmd::MetadataClear { id } => {
-            let response = client.put_sound_asset_metadata(id, &HashMap::new()).await?;
+            let keys = sound_asset_metadata_keys(client, id).await?;
+            let response = client
+                .put_sound_asset_metadata(id, &PutMetadataRequest::new().remove_keys(keys))
+                .await?;
             emit(json, &response, |r| {
                 println!("ok={} metadata={:?}", r.ok, r.metadata)
             })?;
@@ -1622,15 +1663,22 @@ async fn run_saved(client: &Client, json: bool, command: SavedCmd) -> Result<()>
             })?;
         }
         SavedCmd::Metadata { id, metadata } => {
-            let map = metadata.parse()?;
-            let response = client.put_saved_animation_metadata(id, &map).await?;
+            let request = metadata.to_request()?;
+            let response = client.put_saved_animation_metadata(id, &request).await?;
             emit(json, &response, |r| {
                 println!("ok={} metadata={:?}", r.ok, r.metadata)
             })?;
         }
         SavedCmd::MetadataClear { id } => {
+            let keys: Vec<String> = client
+                .get_saved_animation(id)
+                .await?
+                .metadata
+                .keys()
+                .cloned()
+                .collect();
             let response = client
-                .put_saved_animation_metadata(id, &HashMap::new())
+                .put_saved_animation_metadata(id, &PutMetadataRequest::new().remove_keys(keys))
                 .await?;
             emit(json, &response, |r| {
                 println!("ok={} metadata={:?}", r.ok, r.metadata)

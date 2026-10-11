@@ -265,6 +265,39 @@ println!(
 # }
 ```
 
+## Asset metadata (merge & remove)
+
+Metadata updates are **additive (merge/upsert)**: the keys you send are added or
+overwritten and every key you omit is kept. A call never clears metadata. To
+delete keys, list them in `remove` — that is the only way to remove metadata.
+Applies to sprite assets (`put_asset_metadata`), sound assets
+(`put_sound_asset_metadata`) and saved animations
+(`put_saved_animation_metadata`); the response returns the full merged map.
+
+```rust,no_run
+# async fn run(client: gametorch::Client, asset: uuid::Uuid) -> gametorch::Result<()> {
+use gametorch::PutMetadataRequest;
+
+// Merge/upsert two keys (any existing key not mentioned is kept).
+let response = client
+    .put_asset_metadata(
+        asset,
+        &PutMetadataRequest::new()
+            .set("variant", "background")
+            .set("facing", "left"),
+    )
+    .await?;
+println!("{:?}", response.metadata); // the full merged map
+
+// Remove keys explicitly.
+let response = client
+    .put_asset_metadata(asset, &PutMetadataRequest::new().remove_keys(["facing"]))
+    .await?;
+println!("{:?}", response.metadata);
+# Ok(())
+# }
+```
+
 ## Error handling
 
 Every fallible operation returns `gametorch::Result<T>`. `Error` exposes the
@@ -414,8 +447,9 @@ gametorch sprite asset content <asset-id> --output fox.png
 gametorch sprite asset original <asset-id> --output fox-original.png
 gametorch sprite asset rename <asset-id> "Hero Fox"      # "" clears the name
 gametorch sprite asset metadata <asset-id> --metadata filepath=/foo/bar/fox.png
-
-gametorch sprite asset metadata-clear <asset-id>
+gametorch sprite asset metadata <asset-id> --metadata variant=background   # merge (filepath kept)
+gametorch sprite asset metadata <asset-id> --remove variant --remove filepath  # delete keys
+gametorch sprite asset metadata-clear <asset-id>      # remove all current keys
 gametorch sprite asset archive <asset-id>
 gametorch sprite asset unarchive <asset-id>
 gametorch sprite asset delete <asset-id>
@@ -436,6 +470,8 @@ gametorch sound get <sound-generation-id> --include-archived
 gametorch sound asset content <sound-asset-id> --output sword.mp3
 gametorch sound asset rename <sound-asset-id> "Sword Unsheath"
 gametorch sound asset metadata <sound-asset-id> --metadata filepath=/foo/bar/sword.mp3
+gametorch sound asset metadata <sound-asset-id> --metadata variant=background
+gametorch sound asset metadata <sound-asset-id> --remove variant --remove filepath
 gametorch sound asset metadata-clear <sound-asset-id>
 gametorch sound asset archive <sound-asset-id>
 gametorch sound asset unarchive <sound-asset-id>
@@ -482,6 +518,8 @@ gametorch saved save --project my-game --generation-id <run-id> \
 gametorch saved get <saved-id>
 gametorch saved rename <saved-id> "Sword Raise (v2)"
 gametorch saved metadata <saved-id> --metadata filepath=/foo/bar/raise.aseprite
+gametorch saved metadata <saved-id> --metadata variant=background
+gametorch saved metadata <saved-id> --remove variant --remove filepath
 gametorch saved metadata-clear <saved-id>
 gametorch saved archive <saved-id>
 gametorch saved unarchive <saved-id>
